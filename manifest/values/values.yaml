@@ -2,3 +2,4 @@ name: nginx
 port: 80
 image: <+artifacts.primary.image>
 image_tag: <+artifacts.primary.image_tag>
+replicas: 4
