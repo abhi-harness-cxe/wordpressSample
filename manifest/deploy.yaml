@@ -17,21 +17,21 @@ spec:
           image: wordpress:latest
           ports:
             - containerPort: 80
-          env:
-            - name: WORDPRESS_DB_HOST
-              value: mysql-service
-            - name: WORDPRESS_DB_NAME
-              value: wordpress
-            - name: WORDPRESS_DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-secret
-                  key: username
-            - name: WORDPRESS_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-secret
-                  key: password
+          # env:
+          #   - name: WORDPRESS_DB_HOST
+          #     value: mysql-service
+          #   - name: WORDPRESS_DB_NAME
+          #     value: wordpress
+          #   - name: WORDPRESS_DB_USER
+          #     valueFrom:
+          #       secretKeyRef:
+          #         name: mysql-secret
+          #         key: username
+          #   - name: WORDPRESS_DB_PASSWORD
+          #     valueFrom:
+          #       secretKeyRef:
+          #         name: mysql-secret
+          #         key: password
 ---
 apiVersion: v1
 kind: Service
