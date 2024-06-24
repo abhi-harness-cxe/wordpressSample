@@ -4,3 +4,5 @@ image: <+artifacts.primary.image>
 image_tag: <+artifacts.primary.tag>
 replicas: 4
 namespace: <+infra.namespace>
+host: <+serviceVariables.host>
+
