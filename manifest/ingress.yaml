@@ -5,7 +5,9 @@ metadata:
   namespace: {{ .Values.namespace }}
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+  
 spec:
+  ingressClassName: nginx
   rules:
   - host: {{ .Values.host }}  # Replace with your domain or IP address
     http:
