@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.name }}-deployment  
+  name: {{ .Values.name }}-deployment 
+  namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
@@ -37,6 +38,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{.Values.name }}
+  namespace: {{ .Values.namespace }}
 spec:
   type: LoadBalancer  # Change to NodePort or ClusterIP based on your setup
   ports:
