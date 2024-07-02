@@ -1,0 +1,114 @@
+pipeline:
+  name: cicd
+  identifier: cicd
+  projectIdentifier: labsproject
+  orgIdentifier: abhilabs
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: abhishek_github
+        repoName: wordpressSample
+        build: <+input>
+  stages:
+    - stage:
+        name: build_docker_image
+        identifier: build_docker_image
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          execution:
+            steps:
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: BuildAndPushDockerRegistry_1
+                  identifier: BuildAndPushDockerRegistry_1
+                  spec:
+                    connectorRef: abhishekdockerhub
+                    repo: vampireking/wordpress-cxe
+                    tags:
+                      - <+pipeline.sequenceId>
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Docker
+            spec: {}
+    - stage:
+        name: deploywordpress
+        identifier: deploywordpress
+        description: ""
+        type: Deployment
+        spec:
+          deploymentType: Kubernetes
+          service:
+            serviceRef: wordpress
+            serviceInputs:
+              serviceDefinition:
+                type: Kubernetes
+                spec:
+                  artifacts:
+                    primary:
+                      primaryArtifactRef: <+input>
+                      sources: <+input>
+                  variables:
+                    - name: host
+                      type: String
+                      value: <+input>
+          environment:
+            environmentRef: wordpressci
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: wordpressci
+          execution:
+            steps:
+              - step:
+                  name: Rollout Deployment
+                  identifier: rolloutDeployment
+                  type: K8sRollingDeploy
+                  timeout: 10m
+                  spec:
+                    skipDryRun: false
+                    pruningEnabled: false
+            rollbackSteps:
+              - step:
+                  name: Rollback Rollout Deployment
+                  identifier: rollbackRolloutDeployment
+                  type: K8sRollingRollback
+                  timeout: 10m
+                  spec:
+                    pruningEnabled: false
+        tags: {}
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback
+    - stage:
+        name: custrom
+        identifier: custrom
+        description: ""
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: ShellScript
+                  name: ShellScript_1
+                  identifier: ShellScript_1
+                  spec:
+                    shell: Bash
+                    executionTarget: {}
+                    source:
+                      type: Inline
+                      spec:
+                        script: echo hello
+                    environmentVariables:
+                      - name: name_val
+                        type: String
+                        value: <+input>
+                    outputVariables: []
+                  timeout: 10m
+        tags: {}
