@@ -29,12 +29,14 @@ pipeline:
                     repo: vampireking/wordpress-cxe
                     tags:
                       - <+pipeline.sequenceId>
-          platform:
-            os: Linux
-            arch: Amd64
-          runtime:
-            type: Docker
-            spec: {}
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: gkeconnector
+              namespace: default
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
     - stage:
         name: deploywordpress
         identifier: deploywordpress
