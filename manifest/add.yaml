@@ -1,0 +1,179 @@
+{{/* https://kubernetes.io/docs/concepts/workloads/controllers/deployment/ */}}
+{{- if .Values.additionalDeploymentSpec}}
+{{- $top := . -}}
+{{- range $key, $val := .Values.additionalDeploymentSpec}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+{{- if $val.annotations }}
+  annotations:
+    {{ toYaml $val.annotations | indent 4 | trim }}
+{{- end }}
+  labels:
+    app: {{ $top.Values.global.name }}
+{{- if $val.labels }}
+    {{ toYaml $val.labels | indent 4 | trim }}
+{{- end }}
+  name: {{ $key }}
+spec:
+  progressDeadlineSeconds: {{ int $val.progressDeadlineSeconds | default 360 }}
+  revisionHistoryLimit: {{ int $val.revisionHistoryLimit | default 5 }}
+  replicas: {{ int $val.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $key }}
+  {{- if not $val.strategy }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  {{- else }}
+  strategy:
+    {{- if eq $val.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ $val.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ $val.strategy.rollingUpdate.maxUnavailable }}
+    {{- end }}
+    type: {{ $val.strategy.type | default "RollingUpdate"  }}
+  {{- end }}
+  template:
+    metadata:
+      {{- if .Values.deploymentSpec.podSpec.annotations }}
+      annotations:
+        {{ toYaml .Values.deploymentSpec.podSpec.annotations | indent 8 | trim }}
+      {{- end }}
+      {{- if $val.podSpec.annotations }}
+      annotations:
+        {{ toYaml $val.podSpec.annotations | indent 8 | trim }}
+      {{- end }}
+      labels:
+        app: {{ $key }}
+    spec:
+      containers:
+      {{/* This is the beginning of the podSpec where we iterate through containers */}}
+      {{- range $container_key, $container_value := $val.podSpec.containers }}
+      - name: {{ $container_value.name }}
+        env:
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          {{- with $top.Values.extraDeploymentEnvVars }}
+          {{- . | toYaml | nindent 10 }}
+          {{- end }}
+          {{- if $container_value.env }}
+          {{- toYaml $container_value.env | nindent 10 }}
+          {{- end }}
+        {{- if $top.Values.configMapSpec }}
+        envFrom:
+        {{- range $cm_key, $cm_val := $top.Values.configMapSpec }}
+        - configMapRef:
+            name: {{ $cm_key }}
+        {{- end }}
+        {{- end }}
+        image: {{ $container_value.image }}
+        {{- if $container_value.imagePullPolicy }}
+        imagePullPolicy: {{ $container_value.imagePullPolicy }}
+        {{- else }}
+        imagePullPolicy: IfNotPresent
+        {{- end }}
+        {{- if $container_value.command }}
+        command:
+          {{ toYaml $container_value.command | indent 10 | trim }}
+        {{- if $container_value.args }}
+        args:
+          {{ toYaml $container_value.args | indent 10 | trim }}
+        {{- end }}
+        {{- end }}
+        {{- if $container_value.livenessProbe }}
+        livenessProbe:
+          {{ toYaml $container_value.livenessProbe | indent 10 | trim }}
+        {{- end }}
+        ports:
+          {{ toYaml $container_value.ports | indent 10 | trim }}
+        {{- if $container_value.readinessProbe }}
+        readinessProbe:
+          {{ toYaml $container_value.readinessProbe | indent 10 | trim }}
+        {{- end }}
+        resources:
+          {{ toYaml $container_value.resources | indent 10 | trim }}
+        securityContext:
+          allowPrivilegeEscalation: false
+        {{- if $container_value.startupProbe }}
+        startupProbe:
+          {{ toYaml $container_value.startupProbe | indent 10 | trim }}
+        {{- end }}
+        {{- if or ($top.Values.externalSecretSpec) ($top.Values.externalSecrets) }}
+        volumeMounts:
+        - mountPath: /etc/secrets
+          name: secrets
+          readOnly: true
+        {{- end }}
+      {{- /* This is the end of the container podSpec */}}
+      {{- end }}
+      {{/* This is the part of the podSpec where we iterate through initContainers */}}
+      {{- if $val.podSpec.initContainers }}
+      initContainers:
+      {{- range $container_key, $init_container_value := $val.podSpec.initContainers }}
+      - name: {{ $init_container_value.name }}
+        env:
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+          {{- with $top.Values.extraDeploymentEnvVars }}
+          {{- . | toYaml | nindent 10 }}
+          {{- end }}
+          {{- if $init_container_value.env }}
+          {{ toYaml $init_container_value.env | indent 10 | trim }}
+          {{- end }}
+        {{- if $top.Values.configMapSpec }}
+        envFrom:
+        {{- range $cm_key, $cm_val := $top.Values.configMapSpec }}
+        - configMapRef:
+            name: {{ $cm_key }}
+        {{- end }}
+        {{- end }}
+        image: {{ $init_container_value.image }}
+        {{- if $init_container_value.imagePullPolicy }}
+        imagePullPolicy: {{ $init_container_value.imagePullPolicy }}
+        {{- else }}
+        imagePullPolicy: IfNotPresent
+        {{- end }}
+        command:
+        {{ toYaml $init_container_value.command | indent 8 | trim }}
+        {{- if $init_container_value.args }}
+        args:
+        {{ toYaml $init_container_value.args | indent 8 | trim }}
+        {{- end }}
+        {{- if or ($top.Values.externalSecretSpec) ($top.Values.externalSecrets) }}
+        volumeMounts:
+        - mountPath: /etc/secrets
+          name: secrets
+          readOnly: true
+        {{- end }}
+      {{- end }}
+      {{- /* This is the end of the initContainer podSpec */}}
+      {{- end }}
+      {{- if $val.restartPolicy }}
+      restartPolicy: {{ $val.restartPolicy }}
+      {{- end }}
+      securityContext:
+        fsGroup: 2000
+        runAsGroup: 3000
+        runAsUser: 1000
+      serviceAccountName: {{ or $val.serviceAccount.name $top.Values.global.name }}
+      terminationGracePeriodSeconds: {{ $val.terminationGracePeriodSeconds | default 60 }}
+      {{- if or ($top.Values.externalSecretSpec) ($top.Values.externalSecrets) }}
+      volumes:
+      - name: secrets
+        secret:
+          defaultMode: 420
+          secretName: {{ $top.Values.global.name }}
+      {{- end }}
+---
+{{- end}}
+{{- end}}
