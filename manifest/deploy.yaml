@@ -12,8 +12,8 @@ spec:
     metadata:
       labels:
         app: {{.Values.name }}
-        cidr_range: {{ .Values.cidr_range }}
-        service_host: {{ .values.servicehost }}
+        cidr_range: "{{ .Values.cidr_range }}"
+        service_host: "{{ .values.servicehost }}"
     spec:
       containers:
         - name: {{.Values.name }}
