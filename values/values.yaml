@@ -5,6 +5,4 @@ image_tag: <+artifacts.primary.tag>
 replicas: 4
 namespace: <+infra.namespace>
 host: <+serviceVariables.host>
-cidr_range: <+serviceVariables.cidr_range>
-servicehost: "*.galore.<+serviceVariables.short_region>.<+env.name>.omni.carezen.net"
 
