@@ -5,6 +5,521 @@ image_tag: <+artifacts.primary.tag>
 replicas: 4
 namespace: <+infra.namespace>
 host: <+serviceVariables.host>
-cidr_range: <+serviceVariables.cidr_range>
-servicehost: "*.galore.<+serviceVariables.short_region>.<+env.name>.omni.carezen.net"
+
+
+additionalDeploymentSpec:
+  <+service.name>-clockwork-schedule:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-schedule-worker
+          command: ["sh", "-c"]
+          args: ["bundle exec clockwork config/scheduler.rb"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 512M
+              cpu: 150m
+            limits:
+              memory: 512M
+              cpu: 150m
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-import:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-import-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=import,outbox bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 2500M
+              cpu: 1
+            limits:
+              memory: 2500M
+              cpu: 1
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-mandrill:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-mandrill-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=mandrill bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 1024M
+              cpu: 150m
+            limits:
+              memory: 1024M
+              cpu: 150m
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-process-mandrill:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-process-mandrill-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=process_mandrill bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 1024M
+              cpu: 150m
+            limits:
+              memory: 1024M
+              cpu: 150m
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-overflow:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-overflow-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=*,!outbox,!import,!solo,!solr_reindex bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 2048M
+              cpu: 500m
+            limits:
+              memory: 2048M
+              cpu: 500m
+
+    progressDeadlineSeconds: 360
+    replicas: 2
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-resque:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-resque-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=high,default bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 2048M
+              cpu: 500m
+            limits:
+              memory: 2048M
+              cpu: 500m
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-solo:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-solo-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=solo bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 512M
+              cpu: 500m
+            limits:
+              memory: 512M
+              cpu: 500m
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-solr:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-solr-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=solr bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 512M
+              cpu: 150m
+            limits:
+              memory: 512M
+              cpu: 150m
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+  <+service.name>-resque-solr-reindex:
+    labels:
+      care.team: galore
+    podSpec:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: false
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: <+serviceVariables.cidr_range>
+      containers:
+        - image: <+artifact.image>
+          name: <+service.name>-solr-reindex-worker
+          command: ["sh", "-c"]
+          args: ["env QUEUE=solr_reindex bundle exec rake resque:work"]
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 3000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 120
+            successThreshold: 1
+          resources:
+            requests:
+              memory: 2G
+              cpu: 550m
+            limits:
+              memory: 2G
+              cpu: 1
+
+    progressDeadlineSeconds: 360
+    replicas: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+
+# describes behavior for horizontally scaling the web server
+horizontalPodAutoscalersSpec:
+  <+service.name>-web-server-horizontal-autoscaler:
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      labels:
+        care.team: galore
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: <+service.name>
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 50
+
+  <+service.name>-resque-solo-horizontal-autoscaler:
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      labels:
+        care.team: galore
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: <+service.name>-resque-solo
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 50
+
+  <+service.name>-resque-mandrill-horizontal-autoscaler:
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      labels:
+        care.team: galore
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: <+service.name>-resque-mandrill
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 50
+
+  <+service.name>-resque-process-mandrill-horizontal-autoscaler:
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      labels:
+        care.team: galore
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: <+service.name>-resque-process-mandrill
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 50
+
+  <+service.name>-resque-solr-horizontal-autoscaler:
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      labels:
+        care.team: galore
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: <+service.name>-resque-solr
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 50
+  
+  <+service.name>-resque-solr-reindex-horizontal-autoscaler:
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      labels:
+        care.team: galore
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: <+service.name>-resque-solr-reindex
+      minReplicas: 2
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 50
+
+virtualServiceSpec:
+  <+service.name>:
+    hosts:
+    - "*.galore.<+serviceVariables.short_region>.<+env.name>.omni.carezen.net"
+    - "*.getgalore-dev.com"
+    - "getgalore-dev.com"
+
+serviceEntrySpec:
+  service-entries-<+env.name>:
+    hosts:
+    - auth.dev.carezen.net
+    - d3t6n8oo5ql0zz.cloudfront.net
+    - getgalore-dev.com
+    - sales-tax.useast1.dev.omni.carezen.net
+    - test.salesforce.com
+    - uat47-smb.svc.bronze.dom.omni.carezen.net
+    location: MESH_EXTERNAL
+    ports:
+    - name: http
+      number: 80
+      protocol: HTTP
+    - name: tls
+      number: 443
+      protocol: TLS
+    resolution: DNS
+
 
