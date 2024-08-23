@@ -6,4 +6,5 @@ replicas: 4
 namespace: <+infra.namespace>
 host: <+serviceVariables.host>
 cidr_range: <+serviceVariables.cidr_range>
+host: "*.galore.<+serviceVariables.short_region>.<+env.name>.omni.carezen.net"
 
