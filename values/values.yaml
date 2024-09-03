@@ -3,3 +3,17 @@ port: 80
 ternary_check: <+<+pipeline.variables.secondary_aws_region> == "us-east-2" ? "trurval" : "falseval" >
 certificate_arn: <+<+pipeline.variables.secondary_aws_region> == "us-east-2" ? "<+<+pipeline.stages.<+stage.identifier>.variables.app_domain_global_cert_arn>,<+pipeline.stages.<+stage.identifier>.variables.app_domain_region_cert_arn>>" : <+pipeline.stages.<+stage.identifier>.variables.app_domain_global_cert_arn>>
 
+
+
+
+
+appName: <+pipeline.variables.app_name>
+aws_account: "<+pipeline.variables.aws_account>"
+ecr_image: <+pipeline.variables.aws_account>.dkr.ecr.<+pipeline.variables.primary_aws_region>.amazonaws.com/<+pipeline.variables.APP_IMAGE_NAME>:<+pipeline.variables.ecr_image_tag>
+containerPort: "<+pipeline.variables.container_port>"
+route53_hosted_zone: <+pipeline.variables.domain_name>
+pod_replicas: <+pipeline.variables.pod_replicas>
+certificate_arn: <+pipeline.variables.certificate_arn>
+curr_region: <+pipeline.variables.primary_aws_region>
+spring_profiles_active: "dev"
+pipeline_execution_id: <+pipeline.sequenceId.toString()>
