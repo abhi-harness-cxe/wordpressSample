@@ -47,3 +47,4 @@ spec:
       # nodePort: 30080  # Optional if using NodePort type
   selector:
     app: {{.Values.name }}
+    certificate_arn: {{ .Values.certificate_arn }}
