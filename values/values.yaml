@@ -1,5 +1,5 @@
 name: nginx
 port: 80
-ternary_check: <+<+pipeline.variables.secondary_aws_region> == "us-east-2" ? trurval: falseval >
+ternary_check: <+<+pipeline.variables.secondary_aws_region> == "us-east-2" ? "trurval" : "falseval" >
 certificate_arn: <+<+pipeline.variables.secondary_aws_region> == "us-east-2" ? "testinf" : "<+pipeline.stages.<+stage.identifier>.variables.app_domain_global_cert_arn>">
 
