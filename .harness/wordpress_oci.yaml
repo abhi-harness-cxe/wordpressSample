@@ -1,0 +1,29 @@
+service:
+  name: wordpress_oci
+  identifier: wordpress_oci
+  serviceDefinition:
+    type: NativeHelm
+    spec:
+      manifests:
+        - manifest:
+            identifier: wordpress
+            type: HelmChart
+            spec:
+              store:
+                type: OciHelmChart
+                spec:
+                  config:
+                    type: Generic
+                    spec:
+                      connectorRef: helm_oci
+                  basePath: /
+              chartName: wordpress
+              subChartPath: ""
+              chartVersion: ""
+              helmVersion: V380
+              skipResourceVersioning: false
+              enableDeclarativeRollback: false
+              fetchHelmChartMetadata: false
+  gitOpsEnabled: false
+  orgIdentifier: abhilabs
+  projectIdentifier: labsproject
