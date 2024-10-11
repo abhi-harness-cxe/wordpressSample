@@ -1,0 +1,271 @@
+pipeline:
+  projectIdentifier: labsproject
+  orgIdentifier: abhilabs
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: account.BitbucketCloudHarnessCI0Connector
+        repoName: <+pipeline.variables.dtf_module_repo>
+        build:
+          type: branch
+          spec:
+            branch: main
+        prCloneStrategy: SourceBranch
+        sparseCheckout: []
+  stages:
+    - stage:
+        name: Initial Checks
+        identifier: Build
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: account.devterragruntconnector
+              namespace: dev-harness-delegate-service
+              serviceAccountName: dev-harness-delegate-admin
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              harnessImageConnectorRef: account.dockerartifactorydeluxecom
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Check for Terraform Docs and Changelog
+                  identifier: Check_for_Terraform_Docs_and_Changelog
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: |-
+
+                      if [ ! -f README.md ]; then
+                          echo "README.md not found!"
+                          exit 1;
+                      fi
+
+                      if [ ! -f .terraform-docs.yml ]; then
+                          echo ".terraform-docs.yml not found!"
+                          exit 1;
+                      fi
+          caching:
+            enabled: false
+            paths: []
+    - stage:
+        name: Terraform CI Checks
+        identifier: Terraform_CI_Checks
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            useFromStage: Build
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Terraform Format Checks
+                  identifier: Terraform_Format_Checks
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: |-
+                      tfenv use latest
+
+                      terraform fmt -check
+              - step:
+                  type: Run
+                  name: TFlint
+                  identifier: TFlint
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: tflint
+              - step:
+                  type: Run
+                  name: Terraform Validate
+                  identifier: Terraform_Validate
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: |-
+                      tfenv use latest
+
+                      terraform init
+                      terraform validate
+    - stage:
+        name: Terraform Testing
+        identifier: Terraform_Testing
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            useFromStage: Build
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Terraform Test
+                  identifier: Terraform_Test
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: |-
+                      tfenv use latest
+
+                      terraform init
+                      terraform test
+    - stage:
+        name: IaC Scan
+        identifier: IaC_Scan
+        description: ""
+        type: SecurityTests
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: account.devterragruntconnector
+              namespace: dev-harness-delegate-service
+              serviceAccountName: dev-harness-delegate-admin
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              harnessImageConnectorRef: deluxedockerremote
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Wiz
+                  name: Wiz Scan
+                  identifier: Wiz_Scan
+                  spec:
+                    mode: orchestration
+                    config: wiz-iac-templates
+                    target:
+                      type: repository
+                      detection: auto
+                    advanced:
+                      log:
+                        level: info
+                    auth:
+                      access_token: <+secrets.getValue("account.WizIO_AccessToken")>
+                      access_id: <+secrets.getValue("account.WizIO_AccountId")>
+    - stage:
+        name: Terraform Docs
+        identifier: Terraform_Docs
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            useFromStage: Build
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Generate Docs
+                  identifier: Generate_Docs
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: |-
+
+                      terraform-docs .
+
+                      git config --global credential.helper store
+                      echo "https://<+secrets.getValue('account.bitbucket_cloud_harnesscisupport0_username')>:<+secrets.getValue('account.bitbucket_cloud_harnesscisupport0_appkey')>@bitbucket.org" >> ~/.git-credentials
+
+                      git config --global user.name "Harness CI Pipeline"
+                      git config --global user.email "harnesscipipeline@deluxe.com"
+
+                      if [ `git diff --exit-code README.md` ]; then
+                        git commit -am 'Update TF Docs'
+                        git push -u origin <+eventPayload.pullrequest.source.branch.name>
+                      fi
+        when:
+          pipelineStatus: Success
+          condition: <+codebase.build.type>=="PR"
+    - stage:
+        name: Release Module
+        identifier: Release_Module
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: account.devterragruntconnector
+              namespace: dev-harness-delegate-service
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Create Tag
+                  identifier: Create_Tag
+                  spec:
+                    connectorRef: account.dockerartifactorydeluxecom
+                    image: dlxiac
+                    shell: Bash
+                    command: |-
+
+                      tag=`echo <+trigger.targetBranch>|awk -F/ '{print $2}'`
+                      repo_dir=`echo "<+pipeline.properties.ci.codebase.repoName>"| awk -F/ '{print $5}'`
+                      echo $tag
+                      export TAG=$tag
+                      git config --global credential.helper store
+                      echo "https://<+secrets.getValue('account.bitbucket_cloud_harnesscisupport0_username')>:<+secrets.getValue('account.bitbucket_cloud_harnesscisupport0_appkey')>@bitbucket.org" >> ~/.git-credentials
+
+                      git tag $tag
+                      git push origin tag $tag
+                    outputVariables:
+                      - name: TAG
+              - stepGroup:
+                  name: Release Artifact
+                  identifier: Release_Artifact
+                  steps:
+                    - step:
+                        type: Run
+                        name: Package module
+                        identifier: Package_module
+                        spec:
+                          connectorRef: account.dockerartifactorydeluxecom
+                          image: dlxiac
+                          shell: Bash
+                          command: |-
+                            git config --global credential.helper store
+                            echo "https://<+secrets.getValue('account.bitbucket_cloud_harnesscisupport0_username')>:<+secrets.getValue('account.bitbucket_cloud_harnesscisupport0_appkey')>@bitbucket.org" >> ~/.git-credentials
+
+                            export TAG_ZIP="<+pipeline.stages.Release_Module.spec.execution.steps.Create_Tag.output.outputVariables.TAG>.zip"
+                            git checkout $tag
+
+                            zip -r $TAG_ZIP .
+                          outputVariables:
+                            - name: TAG_ZIP
+                    - step:
+                        type: Run
+                        name: Artifactory Deploy
+                        identifier: Artifactory_Deploy
+                        spec:
+                          connectorRef: account.dockerartifactorydeluxecom
+                          image: dlxiac
+                          shell: Bash
+                          command: curl -u"jenkinsdeploysupport@deluxe.com:<+secrets.getValue('account.JFrog_Password_JenkinsDeploySupport')>" -XPUT "https://artifacts.deluxe.com/artifactory/dtf-local/dtf/<+<+pipeline.variables.dtf_module_name>.replace(' ','_').replace('-','_')>/aws/<+pipeline.stages.Release_Module.spec.execution.steps.Release_Artifact.steps.Package_module.output.outputVariables.TAG_ZIP>" -T ./<+pipeline.stages.Release_Module.spec.execution.steps.Release_Artifact.steps.Package_module.output.outputVariables.TAG_ZIP>
+        when:
+          pipelineStatus: Success
+          condition: <+<+trigger.targetBranch>.startsWith("release")>
+  identifier: "abhi"
+  name: "abhi"
