@@ -4,3 +4,4 @@ appName: test
 containerPort: 80
 pod_replicas: 1
 certificate_arn: <+pipeline.variables.certificate_arn>
+namespace: <+infra.namespace>
