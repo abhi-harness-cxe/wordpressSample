@@ -1,0 +1,24 @@
+package pipeline
+
+# Allow saving pipelines only if the name starts with "infra"
+allow {
+    input.metadata.action == "onsave"                # Check if the action is 'onsave'
+    user_in_group                                     # Ensure the user is in the specified group
+    startswith(input.pipeline.name, "infra")         # Check if the pipeline name starts with "infra"
+}
+
+# Deny all other save actions
+deny[msg] {
+    input.metadata.action == "onsave"                # Check if the action is 'onsave'
+    not allow                                          # If the conditions for allow are not met
+
+    msg := sprintf("User '%s' is not allowed to save a pipeline named '%s'.", [input.metadata.user.name, input.pipeline.name])
+}
+
+# Check if the user is part of the _project_all_users group
+user_in_group {
+    group := input.metadata.userGroups[_]            # Get user group information
+    group.identifier == "infra_users"         # Match the identifier
+    group.users[_] == input.metadata.principalIdentifier  # Check if the user is in the group
+}
+
