@@ -1,0 +1,33 @@
+template:
+  name: quicksampletemplate
+  identifier: quicksampletemplate
+  versionLabel: "1"
+  type: Pipeline
+  projectIdentifier: labsproject
+  orgIdentifier: abhilabs
+  tags: {}
+  spec:
+    stages:
+      - stage:
+          name: stagede
+          identifier: stagede
+          description: ""
+          type: Custom
+          spec:
+            execution:
+              steps:
+                - step:
+                    type: ShellScript
+                    name: ShellScript_1
+                    identifier: ShellScript_1
+                    spec:
+                      shell: Bash
+                      executionTarget: {}
+                      source:
+                        type: Inline
+                        spec:
+                          script: echo hello
+                      environmentVariables: []
+                      outputVariables: []
+                    timeout: 10m
+          tags: {}
